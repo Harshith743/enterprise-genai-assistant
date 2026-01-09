@@ -1,44 +1,36 @@
-import { LlamaCpp } from '../llms/LlamaCpp.js';
-import { ChatUserMessage } from 'node-llama-cpp';
+import { LlamaCpp } from "../llms/LlamaCpp.js";
 
 /**
- * Chat-optimized version of LlamaCpp
- * Compatible with latest node-llama-cpp versions
+ * ChatLlamaCpp
+ * Thin wrapper that ALWAYS passes a prompt string to LlamaCpp
  */
 export class ChatLlamaCpp extends LlamaCpp {
-  /**
-   * Convert chat messages to a prompt and invoke the base LLM
-   */
-  async invoke(messages, options = {}) {
-    const prompt = this._formatMessagesToPrompt(messages);
+  async invoke(input, options = {}) {
+    let prompt;
 
-    const responseText = await super.invoke(prompt, options);
-
-    // Return a plain object instead of ChatModelResponse
-    // (RAGChain expects a simple { content } shape)
-    return {
-      content: responseText,
-    };
-  }
-
-  /**
-   * Format chat messages into a single prompt string
-   */
-  _formatMessagesToPrompt(messages) {
-    if (typeof messages === 'string') {
-      return messages;
+    // Case 1: raw string
+    if (typeof input === "string") {
+      prompt = input;
     }
 
-    return messages
-      .map((msg) => {
-        // Handle ChatUserMessage or plain objects safely
-        const role = msg.role || 'user';
-        const content =
-          msg.content ??
-          (msg instanceof ChatUserMessage ? msg.message : String(msg));
+    // Case 2: { prompt: "..." }
+    else if (typeof input === "object" && input.prompt) {
+      prompt = input.prompt;
+    }
 
-        return `${role}: ${content}`;
-      })
-      .join('\n');
+    // Case 3: chat-style messages array
+    else if (Array.isArray(input)) {
+      prompt = input
+        .map(
+          (msg) =>
+            `${msg.role ?? "user"}: ${msg.content ?? String(msg)}`
+        )
+        .join("\n");
+    } else {
+      throw new Error("Unsupported input type for ChatLlamaCpp.invoke");
+    }
+
+    // ✅ THIS is the only correct call
+    return super.invoke(prompt, options);
   }
 }
