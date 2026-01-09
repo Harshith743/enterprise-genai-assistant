@@ -1,22 +1,28 @@
 import { LlamaCpp } from '../llms/LlamaCpp.js';
 import { ChatUserMessage } from 'node-llama-cpp';
 
-
 /**
  * Chat-optimized version of LlamaCpp
+ * Compatible with latest node-llama-cpp versions
  */
 export class ChatLlamaCpp extends LlamaCpp {
   /**
-   * Convert messages to prompt format and invoke
+   * Convert chat messages to a prompt and invoke the base LLM
    */
   async invoke(messages, options = {}) {
-    // Convert chat messages to prompt
     const prompt = this._formatMessagesToPrompt(messages);
-    return await super.invoke(prompt, options);
+
+    const responseText = await super.invoke(prompt, options);
+
+    // Return a plain object instead of ChatModelResponse
+    // (RAGChain expects a simple { content } shape)
+    return {
+      content: responseText,
+    };
   }
 
   /**
-   * Format array of messages into a single prompt
+   * Format chat messages into a single prompt string
    */
   _formatMessagesToPrompt(messages) {
     if (typeof messages === 'string') {
@@ -25,8 +31,12 @@ export class ChatLlamaCpp extends LlamaCpp {
 
     return messages
       .map((msg) => {
+        // Handle ChatUserMessage or plain objects safely
         const role = msg.role || 'user';
-        const content = msg.content || msg;
+        const content =
+          msg.content ??
+          (msg instanceof ChatUserMessage ? msg.message : String(msg));
+
         return `${role}: ${content}`;
       })
       .join('\n');
