@@ -44,3 +44,9 @@ User Query → Vector Retriever → Relevant Context → LLM → Final Answer
 - PDF and DOCX ingestion
 - Web-based UI
 - Query analytics and logging
+
+## How to Run
+
+1. Install dependencies:
+```bash
+npm install
