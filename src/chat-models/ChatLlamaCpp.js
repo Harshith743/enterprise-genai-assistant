@@ -1,5 +1,6 @@
 import { LlamaCpp } from '../llms/LlamaCpp.js';
-import { ChatUserMessage, ChatModelResponse } from 'node-llama-cpp';
+import { ChatUserMessage } from 'node-llama-cpp';
+
 
 /**
  * Chat-optimized version of LlamaCpp

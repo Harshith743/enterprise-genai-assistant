@@ -5,7 +5,7 @@ import { RecursiveCharacterTextSplitter } from "./text-splitters/RecursiveCharac
 import { InMemoryVectorStore } from "./vector-stores/InMemoryVectorStore.js";
 import { VectorStoreRetriever } from "./retrievers/VectorStoreRetriever.js";
 import { RAGChain } from "./chains/RAGChain.js";
-import { OpenAIChatModel } from "./chat-models/OpenAIChatModel.js";
+import { ChatLlamaCpp } from "./chat-models/ChatLlamaCpp.js";
 
 /**
  * Enterprise RAG Configuration
@@ -15,6 +15,7 @@ const CONFIG = {
   chunkSize: Number(process.env.CHUNK_SIZE || 500),
   chunkOverlap: Number(process.env.CHUNK_OVERLAP || 50),
   topK: Number(process.env.TOP_K || 4),
+  modelPath: "./models",
 };
 
 /**
@@ -34,13 +35,10 @@ async function buildKnowledgeBase() {
     chunkOverlap: CONFIG.chunkOverlap,
   });
 
-  const documentChunks = await splitter.splitDocuments(
-    enterpriseDocuments
-  );
-
+  const documentChunks = await splitter.splitDocuments(enterpriseDocuments);
   console.log(`✅ Created ${documentChunks.length} chunks`);
 
-  console.log("📦 Building vector store...");
+  console.log("📦 Creating vector store...");
   const vectorStore = new InMemoryVectorStore();
   await vectorStore.addDocuments(documentChunks);
 
@@ -48,7 +46,7 @@ async function buildKnowledgeBase() {
 }
 
 /**
- * Run Enterprise Assistant
+ * Run Enterprise GenAI Assistant
  */
 async function runEnterpriseAssistant(userQuery) {
   const vectorStore = await buildKnowledgeBase();
@@ -58,8 +56,8 @@ async function runEnterpriseAssistant(userQuery) {
     topK: CONFIG.topK,
   });
 
-  const llm = new OpenAIChatModel({
-    model: "gpt-3.5-turbo",
+  const llm = new ChatLlamaCpp({
+    modelPath: CONFIG.modelPath,
   });
 
   const ragChain = new RAGChain({
@@ -75,15 +73,19 @@ async function runEnterpriseAssistant(userQuery) {
   console.log("\n💡 Answer:");
   console.log(response.answer);
 
-  console.log("\n📚 Sources:");
-  response.sources.forEach((source, idx) => {
-    console.log(`${idx + 1}. ${source.metadata.source}`);
-  });
+  if (response.sources && response.sources.length > 0) {
+    console.log("\n📚 Sources:");
+    response.sources.forEach((source, index) => {
+      console.log(`${index + 1}. ${source.metadata?.source || "Unknown source"}`);
+    });
+  }
 }
 
 /**
- * Example Run
+ * Example Execution
  */
 runEnterpriseAssistant(
-  "What information is available in the enterprise documents?"
-);
+  "Summarize the key information available in the enterprise documents."
+).catch((error) => {
+  console.error("❌ Error running enterprise assistant:", error);
+});
