@@ -1,33 +1,46 @@
-import "dotenv/config";
+import fs from "fs/promises";
+import path from "path";
 
-import { DirectoryLoader } from "./loaders/DirectoryLoader.js";
 import { RecursiveCharacterTextSplitter } from "./text-splitters/RecursiveCharacterTextSplitter.js";
-import { InMemoryVectorStore } from "./vector-stores/InMemoryVectorStore.js";
-import { VectorStoreRetriever } from "./retrievers/VectorStoreRetriever.js";
-import { RAGChain } from "./chains/RAGChain.js";
-import { ChatLlamaCpp } from "./chat-models/ChatLlamaCpp.js";
+import { LlamaCpp } from "./llms/LlamaCpp.js";
 
 /**
- * Enterprise RAG Configuration
+ * Configuration
  */
 const CONFIG = {
   documentsPath: "./examples/enterprise_docs",
-  chunkSize: Number(process.env.CHUNK_SIZE || 500),
-  chunkOverlap: Number(process.env.CHUNK_OVERLAP || 50),
-  topK: Number(process.env.TOP_K || 4),
-  modelPath: "./models",
+  chunkSize: 500,
+  chunkOverlap: 50,
+  maxContextChunks: 3,
+  modelPath: "./models/hf_Qwen_Qwen3-1.7B.Q8_0.gguf",
 };
 
 /**
- * Build Enterprise Knowledge Base
+ * Load raw text documents
  */
-async function buildKnowledgeBase() {
+async function loadDocuments(dirPath) {
+  const files = await fs.readdir(dirPath);
+  const texts = [];
+
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file);
+    const stat = await fs.stat(fullPath);
+    if (!stat.isFile()) continue;
+
+    const text = await fs.readFile(fullPath, "utf-8");
+    texts.push(text);
+  }
+
+  return texts;
+}
+
+/**
+ * Build context chunks
+ */
+async function buildContextChunks() {
   console.log("📄 Loading enterprise documents...");
-
-  const loader = new DirectoryLoader(CONFIG.documentsPath);
-  const enterpriseDocuments = await loader.load();
-
-  console.log(`✅ Loaded ${enterpriseDocuments.length} documents`);
+  const documents = await loadDocuments(CONFIG.documentsPath);
+  console.log(`✅ Loaded ${documents.length} documents`);
 
   console.log("✂️ Splitting documents into chunks...");
   const splitter = new RecursiveCharacterTextSplitter({
@@ -35,57 +48,53 @@ async function buildKnowledgeBase() {
     chunkOverlap: CONFIG.chunkOverlap,
   });
 
-  const documentChunks = await splitter.splitDocuments(enterpriseDocuments);
-  console.log(`✅ Created ${documentChunks.length} chunks`);
+  const combinedText = documents.join("\n");
+  const chunks = await splitter.splitText(combinedText);
 
-  console.log("📦 Creating vector store...");
-  const vectorStore = new InMemoryVectorStore();
-  await vectorStore.addDocuments(documentChunks);
+  console.log(`✅ Created ${chunks.length} chunks`);
 
-  return vectorStore;
+  return chunks.slice(0, CONFIG.maxContextChunks);
 }
 
 /**
- * Run Enterprise GenAI Assistant
+ * Run Enterprise Assistant
  */
-async function runEnterpriseAssistant(userQuery) {
-  const vectorStore = await buildKnowledgeBase();
+async function runEnterpriseAssistant(query) {
+  const contextChunks = await buildContextChunks();
 
-  const retriever = new VectorStoreRetriever({
-    vectorStore,
-    topK: CONFIG.topK,
-  });
+  const context = contextChunks
+    .map((chunk, i) => `Context ${i + 1}:\n${chunk}`)
+    .join("\n\n");
 
-  const llm = new ChatLlamaCpp({
+  const finalPrompt = `
+You are an enterprise AI assistant.
+Answer the question using ONLY the context below.
+
+${context}
+
+Question: ${query}
+Answer:
+`.trim();
+
+  console.log("\n❓ User Query:");
+  console.log(query);
+
+  // ✅ CORRECT initialization
+  const llm = await LlamaCpp.initialize({
     modelPath: CONFIG.modelPath,
   });
 
-  const ragChain = new RAGChain({
-    retriever,
-    llm,
-  });
-
-  console.log("\n❓ User Query:");
-  console.log(userQuery);
-
-  const response = await ragChain.call({ query: userQuery });
+  const response = await llm.invoke(finalPrompt);
 
   console.log("\n💡 Answer:");
-  console.log(response.answer);
-
-  if (response.sources && response.sources.length > 0) {
-    console.log("\n📚 Sources:");
-    response.sources.forEach((source, index) => {
-      console.log(`${index + 1}. ${source.metadata?.source || "Unknown source"}`);
-    });
-  }
+  console.log(response);
 }
 
 /**
- * Example Execution
+ * Example run
  */
 runEnterpriseAssistant(
-  "Summarize the key information available in the enterprise documents."
-).catch((error) => {
-  console.error("❌ Error running enterprise assistant:", error);
+  "Summarize the information available in the enterprise documents."
+).catch((err) => {
+  console.error("❌ Error running enterprise assistant:", err);
 });
