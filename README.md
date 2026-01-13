@@ -6,7 +6,7 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 - **Enterprise document ingestion** (text-based documents)
 - **Configurable text chunking** for long documents
@@ -17,7 +17,7 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 Documents (.txt)
@@ -39,7 +39,7 @@ Generated Answer
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 enterprise-genai-assistant/
@@ -60,7 +60,7 @@ enterprise-genai-assistant/
 
 ---
 
-## ⚙️ Requirements
+## Requirements
 
 - **Node.js** >= 18
 - **npm** or **pnpm**
@@ -69,7 +69,7 @@ enterprise-genai-assistant/
 
 ---
 
-## 🤖 Supported Models (Examples)
+## Supported Models (Examples)
 
 You can use any GGUF model supported by `node-llama-cpp`.
 
@@ -81,7 +81,7 @@ Examples:
 
 ---
 
-## 📥 Setup Instructions
+## Setup Instructions
 
 ### 1️⃣ Clone the repository
 
@@ -171,7 +171,7 @@ Summarize the information available in the enterprise documents.
 
 ---
 
-## 🧠 How It Works (Detailed)
+## How It Works (Detailed)
 
 1. **Loads enterprise documents** from a directory
 2. **Splits text into overlapping chunks** to fit LLM context limits
