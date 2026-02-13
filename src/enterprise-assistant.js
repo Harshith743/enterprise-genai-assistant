@@ -90,11 +90,24 @@ Answer:
   console.log(response);
 }
 
-/**
- * Example run
- */
-runEnterpriseAssistant(
-  "Summarize the information available in the enterprise documents."
-).catch((err) => {
-  console.error("❌ Error running enterprise assistant:", err);
+import readline from "readline";
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const exampleQuery = "Summarize the information available in the enterprise documents.";
+
+console.log(`\nExample Query: ${exampleQuery}`);
+rl.question("Input your query: ", (userQuery) => {
+  const queryToRun = userQuery.trim() || exampleQuery; // Use example if empty
+
+  runEnterpriseAssistant(queryToRun)
+    .catch((err) => {
+      console.error("❌ Error running enterprise assistant:", err);
+    })
+    .finally(() => {
+      rl.close();
+    });
 });
