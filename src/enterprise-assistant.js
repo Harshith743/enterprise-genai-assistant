@@ -3,6 +3,7 @@ import path from "path";
 
 import { RecursiveCharacterTextSplitter } from "./text-splitters/RecursiveCharacterTextSplitter.js";
 import { LlamaCpp } from "./llms/LlamaCpp.js";
+import { PDFLoader } from "./loaders/PDFLoader.js";
 
 /**
  * Configuration
@@ -27,8 +28,17 @@ async function loadDocuments(dirPath) {
     const stat = await fs.stat(fullPath);
     if (!stat.isFile()) continue;
 
-    const text = await fs.readFile(fullPath, "utf-8");
-    texts.push(text);
+    if (file.endsWith(".txt")) {
+      const text = await fs.readFile(fullPath, "utf-8");
+      texts.push(text);
+    } else if (file.endsWith(".pdf")) {
+      console.log(`📄 Found PDF: ${file}`);
+      const loader = new PDFLoader(fullPath);
+      const docs = await loader.load();
+      // Combine text from all pages
+      const text = docs.map((doc) => doc.text).join("\n\n");
+      texts.push(text);
+    }
   }
 
   return texts;
@@ -59,14 +69,50 @@ async function buildContextChunks() {
 /**
  * Run Enterprise Assistant
  */
-async function runEnterpriseAssistant(query) {
+/**
+ * Run Enterprise Assistant in Interactive Mode
+ */
+async function main() {
+  // 1. Initialize Context (Load Docs & Split) ONCE
   const contextChunks = await buildContextChunks();
 
-  const context = contextChunks
-    .map((chunk, i) => `Context ${i + 1}:\n${chunk}`)
-    .join("\n\n");
+  // 2. Initialize LLM ONCE
+  console.log("🤖 Loading LLM model...");
+  const llm = await LlamaCpp.initialize({
+    modelPath: CONFIG.modelPath,
+  });
+  console.log("✅ LLM Loaded!");
 
-  const finalPrompt = `
+  // 3. Start Interactive Loop
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  console.log("\n💬 Enterprise Assistant Ready! (Type 'exit' to quit)");
+  console.log("----------------------------------------------------");
+
+  const askQuestion = () => {
+    rl.question("\n📝 You: ", async (query) => {
+      if (query.trim().toLowerCase() === "exit") {
+        console.log("👋 Goodbye!");
+        rl.close();
+        process.exit(0);
+      }
+
+      if (!query.trim()) {
+        console.log("⚠️ Please enter a valid query.");
+        askQuestion();
+        return;
+      }
+
+      // Build context for this specific query
+      // (In a real vector DB scenario, we would retrieve relevant chunks here)
+      const context = contextChunks
+        .map((chunk, i) => `Context ${i + 1}:\n${chunk}`)
+        .join("\n\n");
+
+      const finalPrompt = `
 You are an enterprise AI assistant.
 Answer the question using ONLY the context below.
 
@@ -76,38 +122,27 @@ Question: ${query}
 Answer:
 `.trim();
 
-  console.log("\n❓ User Query:");
-  console.log(query);
+      process.stdout.write("🤖 AI: ");
+      try {
+        const response = await llm.invoke(finalPrompt);
+        console.log(response);
+      } catch (err) {
+        console.error("❌ Error generating response:", err);
+      }
 
-  // ✅ CORRECT initialization
-  const llm = await LlamaCpp.initialize({
-    modelPath: CONFIG.modelPath,
-  });
+      askQuestion(); // Loop back
+    });
+  };
 
-  const response = await llm.invoke(finalPrompt);
-
-  console.log("\n💡 Answer:");
-  console.log(response);
+  // Start the loop
+  askQuestion();
 }
 
+/**
+ * Start the application
+ */
 import readline from "readline";
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-const exampleQuery = "Summarize the information available in the enterprise documents.";
-
-console.log(`\nExample Query: ${exampleQuery}`);
-rl.question("Input your query: ", (userQuery) => {
-  const queryToRun = userQuery.trim() || exampleQuery; // Use example if empty
-
-  runEnterpriseAssistant(queryToRun)
-    .catch((err) => {
-      console.error("❌ Error running enterprise assistant:", err);
-    })
-    .finally(() => {
-      rl.close();
-    });
+main().catch((err) => {
+  console.error("❌ Fatal Error:", err);
 });
