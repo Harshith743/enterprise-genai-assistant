@@ -6,18 +6,18 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-- 📄 **Enterprise document ingestion** (text-based documents)
-- ✂️ **Configurable text chunking** for long documents
-- 🧠 **Context-augmented generation (RAG-style baseline)**
-- 🔒 **Fully local inference** using GGUF models (no data leaves the machine)
-- ⚙️ **No external API dependency**
-- 🧩 Clean, modular architecture suitable for extension (vector DB, hybrid search, etc.)
+- **Enterprise document ingestion** (text-based documents)
+- **Configurable text chunking** for long documents
+- **Context-augmented generation (RAG-style baseline)**
+- **Fully local inference** using GGUF models (no data leaves the machine)
+- **No external API dependency**
+- Clean, modular architecture suitable for extension (vector DB, hybrid search, etc.)
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 Documents (.txt)
@@ -39,7 +39,7 @@ Generated Answer
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 enterprise-genai-assistant/
@@ -60,7 +60,7 @@ enterprise-genai-assistant/
 
 ---
 
-## ⚙️ Requirements
+## Requirements
 
 - **Node.js** >= 18
 - **npm** or **pnpm**
@@ -69,7 +69,7 @@ enterprise-genai-assistant/
 
 ---
 
-## 🤖 Supported Models (Examples)
+## Supported Models (Examples)
 
 You can use any GGUF model supported by `node-llama-cpp`.
 
@@ -81,7 +81,7 @@ Examples:
 
 ---
 
-## 📥 Setup Instructions
+## Setup Instructions
 
 ### 1️⃣ Clone the repository
 
@@ -171,7 +171,7 @@ Summarize the information available in the enterprise documents.
 
 ---
 
-## 🧠 How It Works (Detailed)
+## How It Works (Detailed)
 
 1. **Loads enterprise documents** from a directory
 2. **Splits text into overlapping chunks** to fit LLM context limits
@@ -183,7 +183,7 @@ This approach provides a **transparent and explainable RAG-style pipeline**.
 
 ---
 
-## 🔐 Privacy & Security
+## Privacy & Security
 
 - No external API calls
 - No document data leaves the system
@@ -191,7 +191,7 @@ This approach provides a **transparent and explainable RAG-style pipeline**.
 
 ---
 
-## 🚧 Limitations
+## Limitations
 
 - No vector database (yet)
 - Retrieval is heuristic-based (top-N chunks)
@@ -201,7 +201,7 @@ These are **intentional design choices** for clarity and stability.
 
 ---
 
-## 🔮 Future Improvements
+## Future Improvements
 
 - Vector database integration (Qdrant / LanceDB)
 - Semantic retrieval + re-ranking
@@ -211,25 +211,32 @@ These are **intentional design choices** for clarity and stability.
 
 ---
 
-## 📌 Resume Description
+## Description
 
 > **Enterprise GenAI Assistant**  
 > Built a document-grounded GenAI assistant using local LLaMA (GGUF) inference. Implemented enterprise document ingestion, configurable text chunking, and context-aware response generation without relying on external APIs. Focused on privacy, reliability, and explainable system design.
 
 ---
 
-## 📄 License
+## License
 
-MIT License
+The MIT License (MIT)
+Copyright © 2026 <copyright holders>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-## 👤 Author
+## Author
 
 **Harshith Reddy T**  
 GitHub: https://github.com/Harshith743
 
 ---
 
-⭐ If you found this project useful, feel free to star the repository.
+If you found this project useful, feel free to star the repository.
 
