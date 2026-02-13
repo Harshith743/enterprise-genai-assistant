@@ -1,3 +1,4 @@
+import "dotenv/config"; // Load environment variables
 import fs from "fs/promises";
 import path from "path";
 
@@ -9,11 +10,11 @@ import { PDFLoader } from "./loaders/PDFLoader.js";
  * Configuration
  */
 const CONFIG = {
-  documentsPath: "./examples/enterprise_docs",
-  chunkSize: 500,
-  chunkOverlap: 50,
-  maxContextChunks: 3,
-  modelPath: "./models/hf_Qwen_Qwen3-1.7B.Q8_0.gguf",
+  documentsPath: process.env.DOCS_PATH || "./examples/enterprise_docs",
+  chunkSize: parseInt(process.env.CHUNK_SIZE || "500"),
+  chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || "50"),
+  maxContextChunks: parseInt(process.env.MAX_CONTEXT_CHUNKS || "3"),
+  modelPath: process.env.MODEL_PATH || "./models/hf_Qwen_Qwen3-1.7B.Q8_0.gguf",
 };
 
 /**
@@ -29,15 +30,20 @@ async function loadDocuments(dirPath) {
     if (!stat.isFile()) continue;
 
     if (file.endsWith(".txt")) {
+      console.log(`Loading text file: ${file}`);
       const text = await fs.readFile(fullPath, "utf-8");
       texts.push(text);
     } else if (file.endsWith(".pdf")) {
-      console.log(`📄 Found PDF: ${file}`);
-      const loader = new PDFLoader(fullPath);
-      const docs = await loader.load();
-      // Combine text from all pages
-      const text = docs.map((doc) => doc.text).join("\n\n");
-      texts.push(text);
+      console.log(`Loading PDF file: ${file}`);
+      try {
+        const loader = new PDFLoader(fullPath);
+        const docs = await loader.load();
+        // PDFLoader returns an array of documents, join their text
+        const text = docs.map((d) => d.text).join("\n\n");
+        texts.push(text);
+      } catch (err) {
+        console.error(`Failed to load PDF ${file}:`, err);
+      }
     }
   }
 

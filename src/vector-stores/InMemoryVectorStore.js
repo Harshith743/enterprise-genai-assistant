@@ -1,1 +1,1 @@
-export class InMemoryVectorStore {}
+export class InMemoryVectorStore { }
