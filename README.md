@@ -8,7 +8,7 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 
 ## Key Features
 
-- **Enterprise document ingestion** (text-based documents)
+- **Enterprise document ingestion** (text-based documents, PDFs)
 - **Configurable text chunking** for long documents
 - **Context-augmented generation (RAG-style baseline)**
 - **Fully local inference** using GGUF models (no data leaves the machine)
@@ -20,9 +20,9 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 ## Architecture Overview
 
 ```
-Documents (.txt)
+Documents (.txt, .pdf)
       ↓
-Text Loader
+Text Loader (Text/PDF)
       ↓
 Text Splitter (chunking)
       ↓
@@ -47,11 +47,12 @@ enterprise-genai-assistant/
 ├── src/
 │   ├── enterprise-assistant.js   # Main entry point
 │   ├── llms/                      # LLM wrappers (LlamaCpp)
+│   ├── loaders/                   # Document loaders (PDF, Text)
 │   ├── text-splitters/            # Chunking logic
 │   └── utils/
 │
 ├── examples/
-│   └── enterprise_docs/           # Input documents (.txt files)
+│   └── enterprise_docs/           # Input documents (.txt, .pdf files)
 │
 ├── models/                        # GGUF model files
 ├── package.json
@@ -124,13 +125,15 @@ Place your documents inside:
 examples/enterprise_docs/
 ```
 
-Supported format:
+Supported formats:
 - `.txt`
+- `.pdf`
 
 Example:
 ```
 examples/enterprise_docs/
 ├── company_policy.txt
+├── annual_report.pdf
 ├── internal_guidelines.txt
 ```
 
@@ -158,6 +161,8 @@ node src/enterprise-assistant.js
 
 ```
 📄 Loading enterprise documents...
+Loading text file: company_policy.txt
+Loading PDF file: annual_report.pdf
 ✅ Loaded 2 documents
 ✂️ Splitting documents into chunks...
 ✅ Created 344 chunks
@@ -173,7 +178,7 @@ Summarize the information available in the enterprise documents.
 
 ## How It Works (Detailed)
 
-1. **Loads enterprise documents** from a directory
+1. **Loads enterprise documents** from a directory (supports `.txt` and `.pdf`)
 2. **Splits text into overlapping chunks** to fit LLM context limits
 3. **Selects top-N chunks** as context (baseline retrieval)
 4. **Constructs a grounded prompt** using selected context
@@ -195,7 +200,6 @@ This approach provides a **transparent and explainable RAG-style pipeline**.
 
 - No vector database (yet)
 - Retrieval is heuristic-based (top-N chunks)
-- Supports text documents only
 
 These are **intentional design choices** for clarity and stability.
 
@@ -205,7 +209,7 @@ These are **intentional design choices** for clarity and stability.
 
 - Vector database integration (Qdrant / LanceDB)
 - Semantic retrieval + re-ranking
-- PDF and DOCX loaders
+- DOCX loader
 - Streaming responses
 - Web UI
 
