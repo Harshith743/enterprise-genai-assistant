@@ -99,22 +99,80 @@ async function buildVectorStore() {
 }
 
 /**
- * Run Enterprise Assistant in Interactive Mode
+ * Enterprise Assistant Class
+ * Encapsulates logic for loading, embedding, and querying documents.
+ */
+export class EnterpriseAssistant {
+  constructor() {
+    this.vectorStore = null;
+    this.embeddingModel = null;
+    this.retriever = null;
+    this.llm = null;
+    this.isInitialized = false;
+  }
+
+  /**
+   * Initialize the assistant
+   */
+  async initialize() {
+    if (this.isInitialized) return;
+
+    // 1. Initialize Vector Store (Load Docs, Split, Embed)
+    const { vectorStore, embeddingModel } = await buildVectorStore();
+    this.vectorStore = vectorStore;
+    this.embeddingModel = embeddingModel;
+
+    // 2. Initialize Retriever
+    this.retriever = new VectorStoreRetriever(vectorStore, embeddingModel);
+    this.retriever.k = CONFIG.k;
+
+    // 3. Initialize LLM
+    console.log("🤖 Loading LLM model...");
+    this.llm = await LlamaCpp.initialize({
+      modelPath: CONFIG.modelPath,
+    });
+    console.log("✅ LLM Loaded!");
+
+    this.isInitialized = true;
+  }
+
+  /**
+   * Chat with the assistant
+   * @param {string} query - User question
+   * @returns {Promise<string>} - Assistant response
+   */
+  async chat(query) {
+    if (!this.isInitialized) throw new Error("Assistant not initialized!");
+
+    // Retrieve relevant chunks dynamically
+    console.log(`🔍 Retrieving relevant context for: "${query}"`);
+    const relevantDocs = await this.retriever.getRelevantDocuments(query);
+
+    const context = relevantDocs
+      .map((doc, i) => `Context ${i + 1} (Source: ${doc.metadata.source}):\n${doc.content}`)
+      .join("\n\n");
+
+    const finalPrompt = `
+You are an enterprise AI assistant.
+Answer the question using ONLY the context below.
+
+${context}
+
+Question: ${query}
+Answer:
+`.trim();
+
+    const response = await this.llm.invoke(finalPrompt);
+    return response;
+  }
+}
+
+/**
+ * Run Enterprise Assistant in Interactive Mode (CLI)
  */
 async function main() {
-  // 1. Initialize Vector Store (Load Docs, Split, Embed) ONCE
-  const { vectorStore, embeddingModel } = await buildVectorStore();
-
-  // 2. Initialize Retriever
-  const retriever = new VectorStoreRetriever(vectorStore, embeddingModel);
-  retriever.k = CONFIG.k;
-
-  // 3. Initialize LLM ONCE
-  console.log("🤖 Loading LLM model...");
-  const llm = await LlamaCpp.initialize({
-    modelPath: CONFIG.modelPath,
-  });
-  console.log("✅ LLM Loaded!");
+  const assistant = new EnterpriseAssistant();
+  await assistant.initialize();
 
   // 4. Start Interactive Loop
   const rl = readline.createInterface({
@@ -139,27 +197,9 @@ async function main() {
         return;
       }
 
-      // Retrieve relevant chunks dynamically
-      console.log("🔍 Retrieving relevant context...");
-      const relevantDocs = await retriever.getRelevantDocuments(query);
-
-      const context = relevantDocs
-        .map((doc, i) => `Context ${i + 1} (Source: ${doc.metadata.source}):\n${doc.content}`)
-        .join("\n\n");
-
-      const finalPrompt = `
-You are an enterprise AI assistant.
-Answer the question using ONLY the context below.
-
-${context}
-
-Question: ${query}
-Answer:
-`.trim();
-
       process.stdout.write("🤖 AI: ");
       try {
-        const response = await llm.invoke(finalPrompt);
+        const response = await assistant.chat(query);
         console.log(response);
       } catch (err) {
         console.error("❌ Error generating response:", err);
@@ -174,9 +214,11 @@ Answer:
 }
 
 /**
- * Start the application
+ * Start the application if run directly
  */
-main().catch((err) => {
-  console.error("❌ Fatal Error:", err);
-});
-
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("❌ Fatal Error:", err);
+  });
+}

@@ -1,4 +1,4 @@
-import { LlamaCpp } from "../llms/LlamaCpp.js";
+import { LlamaCpp } from "../../llms/LlamaCpp.js";
 
 /**
  * ChatLlamaCpp
