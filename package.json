@@ -1,9 +1,10 @@
 {
-  "name": "rag-from-scratch",
+  "name": "enterprise-genai-assistant",
   "version": "1.0.0",
   "description": "",
   "scripts": {
     "test": "",
+    "start": "node src/enterprise-assistant.js",
     "prepare": "husky"
   },
   "type": "module",

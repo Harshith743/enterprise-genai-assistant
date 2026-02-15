@@ -10,10 +10,10 @@ This project focuses on **reliability, privacy, and explainability**, and demons
 
 - **Enterprise document ingestion** (text-based documents, PDFs)
 - **Configurable text chunking** for long documents
-- **Context-augmented generation (RAG-style baseline)**
+- **Full Semantic Search (RAG) using Embeddings**
 - **Fully local inference** using GGUF models (no data leaves the machine)
 - **No external API dependency**
-- Clean, modular architecture suitable for extension (vector DB, hybrid search, etc.)
+- Clean, modular architecture suitable for extension
 
 ---
 
@@ -26,7 +26,11 @@ Text Loader (Text/PDF)
       ↓
 Text Splitter (chunking)
       ↓
-Context Selection (top-N chunks)
+Embedding Generation (Local Model)
+      ↓
+Vector Store (In-Memory)
+      ↓
+Semantic Retrieval (Top-K Match)
       ↓
 Prompt Construction
       ↓
@@ -35,7 +39,7 @@ Local LLaMA Inference (llama.cpp)
 Generated Answer
 ```
 
-> **Note:** This project implements a **robust RAG baseline**. Vector database integration (Qdrant / LanceDB / FAISS) can be added later as an enhancement.
+> **Note:** This project implements a **robust RAG system** with semantic search capabilities using local embeddings.
 
 ---
 
@@ -66,6 +70,7 @@ enterprise-genai-assistant/
 - **Node.js** >= 18
 - **npm** or **pnpm**
 - A **GGUF LLM model** compatible with `llama.cpp`
+- A **GGUF Embedding model** (e.g., `bge-small`)
 - Minimum **8GB RAM** recommended for 1–3B models
 
 ---
@@ -117,7 +122,25 @@ models/Qwen3-1.7B-Q8_0.gguf
 
 ---
 
-### 4️⃣ Add enterprise documents
+### 4️⃣ Download an Embedding model
+
+You also need a model to convert text into vectors.
+
+```bash
+npx node-llama-cpp pull --url https://huggingface.co/ChristianAzinn/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5.Q8_0.gguf --dir models
+```
+
+Ensure you have:
+
+```
+models/bge-small-en-v1.5-Q8_0.gguf
+```
+
+---
+
+---
+
+### 5️⃣ Add enterprise documents
 
 Place your documents inside:
 
@@ -139,7 +162,9 @@ examples/enterprise_docs/
 
 ---
 
-### 5️⃣ Configure model path
+---
+
+### 6️⃣ Configure model path
 
 Open `src/enterprise-assistant.js` and update:
 
@@ -154,7 +179,7 @@ Make sure this matches the **exact filename** in your `models/` directory.
 ## ▶️ How to Run
 
 ```bash
-node src/enterprise-assistant.js
+npm start
 ```
 
 ### Example Output
@@ -180,9 +205,10 @@ Summarize the information available in the enterprise documents.
 
 1. **Loads enterprise documents** from a directory (supports `.txt` and `.pdf`)
 2. **Splits text into overlapping chunks** to fit LLM context limits
-3. **Selects top-N chunks** as context (baseline retrieval)
-4. **Constructs a grounded prompt** using selected context
-5. **Runs local LLM inference** using llama.cpp
+3. **Generates embeddings** for all chunks using a local model
+4. **Retrieves top-K relevant chunks** based on semantic similarity to the query
+5. **Constructs a grounded prompt** using selected context
+6. **Runs local LLM inference** using llama.cpp
 
 This approach provides a **transparent and explainable RAG-style pipeline**.
 
@@ -198,8 +224,8 @@ This approach provides a **transparent and explainable RAG-style pipeline**.
 
 ## Limitations
 
-- No vector database (yet)
-- Retrieval is heuristic-based (top-N chunks)
+- In-Memory Vector Store (vectors lost on restart)
+- Retrieval is purely semantic (no keyword search yet)
 
 These are **intentional design choices** for clarity and stability.
 

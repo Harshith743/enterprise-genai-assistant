@@ -1,10 +1,14 @@
 import "dotenv/config"; // Load environment variables
 import fs from "fs/promises";
 import path from "path";
+import readline from "readline";
 
 import { RecursiveCharacterTextSplitter } from "./text-splitters/RecursiveCharacterTextSplitter.js";
 import { LlamaCpp } from "./llms/LlamaCpp.js";
 import { PDFLoader } from "./loaders/PDFLoader.js";
+import { EmbeddingModel } from "./embeddings/EmbeddingModel.js";
+import { InMemoryVectorStore } from "./vector-stores/InMemoryVectorStore.js";
+import { VectorStoreRetriever } from "./retrievers/VectorStoreRetriever.js";
 
 /**
  * Configuration
@@ -13,8 +17,9 @@ const CONFIG = {
   documentsPath: process.env.DOCS_PATH || "./examples/enterprise_docs",
   chunkSize: parseInt(process.env.CHUNK_SIZE || "500"),
   chunkOverlap: parseInt(process.env.CHUNK_OVERLAP || "50"),
-  maxContextChunks: parseInt(process.env.MAX_CONTEXT_CHUNKS || "3"),
+  k: parseInt(process.env.RETRIEVAL_K || "4"), // Number of chunks to retrieve
   modelPath: process.env.MODEL_PATH || "./models/hf_Qwen_Qwen3-1.7B.Q8_0.gguf",
+  embeddingModelPath: process.env.EMBEDDING_MODEL_PATH || "./models/bge-small-en-v1.5.Q8_0.gguf",
 };
 
 /**
@@ -22,7 +27,7 @@ const CONFIG = {
  */
 async function loadDocuments(dirPath) {
   const files = await fs.readdir(dirPath);
-  const texts = [];
+  const documents = [];
 
   for (const file of files) {
     const fullPath = path.join(dirPath, file);
@@ -32,31 +37,32 @@ async function loadDocuments(dirPath) {
     if (file.endsWith(".txt")) {
       console.log(`Loading text file: ${file}`);
       const text = await fs.readFile(fullPath, "utf-8");
-      texts.push(text);
+      documents.push({ text, metadata: { source: file } });
     } else if (file.endsWith(".pdf")) {
       console.log(`Loading PDF file: ${file}`);
       try {
         const loader = new PDFLoader(fullPath);
         const docs = await loader.load();
-        // PDFLoader returns an array of documents, join their text
-        const text = docs.map((d) => d.text).join("\n\n");
-        texts.push(text);
+        // PDFLoader returns multiple docs (pages), we'll keep them associated with the source
+        docs.forEach(d => {
+          documents.push({ text: d.pageContent, metadata: { source: file, ...d.metadata } });
+        });
       } catch (err) {
         console.error(`Failed to load PDF ${file}:`, err);
       }
     }
   }
 
-  return texts;
+  return documents;
 }
 
 /**
- * Build context chunks
+ * Build Vector Store
  */
-async function buildContextChunks() {
+async function buildVectorStore() {
   console.log("📄 Loading enterprise documents...");
-  const documents = await loadDocuments(CONFIG.documentsPath);
-  console.log(`✅ Loaded ${documents.length} documents`);
+  const rawDocs = await loadDocuments(CONFIG.documentsPath);
+  console.log(`✅ Loaded ${rawDocs.length} document sources`);
 
   console.log("✂️ Splitting documents into chunks...");
   const splitter = new RecursiveCharacterTextSplitter({
@@ -64,32 +70,53 @@ async function buildContextChunks() {
     chunkOverlap: CONFIG.chunkOverlap,
   });
 
-  const combinedText = documents.join("\n");
-  const chunks = await splitter.splitText(combinedText);
+  const chunkedDocs = [];
 
-  console.log(`✅ Created ${chunks.length} chunks`);
+  for (const doc of rawDocs) {
+    const chunks = await splitter.splitText(doc.text);
+    chunks.forEach(chunk => {
+      chunkedDocs.push({
+        pageContent: chunk,
+        metadata: doc.metadata
+      });
+    });
+  }
 
-  return chunks.slice(0, CONFIG.maxContextChunks);
+  console.log(`✅ Created ${chunkedDocs.length} chunks`);
+
+  console.log("🧠 Initializing Embedding Model...");
+  const embeddingModel = new EmbeddingModel({
+    modelPath: CONFIG.embeddingModelPath
+  });
+  await embeddingModel.initialize();
+
+  console.log("💾 Creating Vector Store & Generating Embeddings (this may take a moment)...");
+  const vectorStore = new InMemoryVectorStore(embeddingModel);
+  await vectorStore.addDocuments(chunkedDocs);
+  console.log("✅ Vector Store Ready!");
+
+  return { vectorStore, embeddingModel };
 }
 
-/**
- * Run Enterprise Assistant
- */
 /**
  * Run Enterprise Assistant in Interactive Mode
  */
 async function main() {
-  // 1. Initialize Context (Load Docs & Split) ONCE
-  const contextChunks = await buildContextChunks();
+  // 1. Initialize Vector Store (Load Docs, Split, Embed) ONCE
+  const { vectorStore, embeddingModel } = await buildVectorStore();
 
-  // 2. Initialize LLM ONCE
+  // 2. Initialize Retriever
+  const retriever = new VectorStoreRetriever(vectorStore, embeddingModel);
+  retriever.k = CONFIG.k;
+
+  // 3. Initialize LLM ONCE
   console.log("🤖 Loading LLM model...");
   const llm = await LlamaCpp.initialize({
     modelPath: CONFIG.modelPath,
   });
   console.log("✅ LLM Loaded!");
 
-  // 3. Start Interactive Loop
+  // 4. Start Interactive Loop
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -112,10 +139,12 @@ async function main() {
         return;
       }
 
-      // Build context for this specific query
-      // (In a real vector DB scenario, we would retrieve relevant chunks here)
-      const context = contextChunks
-        .map((chunk, i) => `Context ${i + 1}:\n${chunk}`)
+      // Retrieve relevant chunks dynamically
+      console.log("🔍 Retrieving relevant context...");
+      const relevantDocs = await retriever.getRelevantDocuments(query);
+
+      const context = relevantDocs
+        .map((doc, i) => `Context ${i + 1} (Source: ${doc.metadata.source}):\n${doc.content}`)
         .join("\n\n");
 
       const finalPrompt = `
@@ -147,8 +176,7 @@ Answer:
 /**
  * Start the application
  */
-import readline from "readline";
-
 main().catch((err) => {
   console.error("❌ Fatal Error:", err);
 });
+
